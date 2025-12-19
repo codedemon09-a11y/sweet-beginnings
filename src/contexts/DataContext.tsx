@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { collection, getDocs, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { 
   Tournament, 
   TournamentRegistration, 
@@ -31,6 +33,7 @@ interface DataContextType {
   processWithdrawal: (requestId: string, approved: boolean, reason?: string) => Promise<void>;
   disqualifyPlayer: (registrationId: string, reason: string) => Promise<void>;
   banUser: (userId: string) => Promise<void>;
+  deleteUser: (userId: string) => Promise<void>;
   getTournamentRegistrations: (tournamentId: string) => Promise<TournamentRegistration[]>;
   updateUserBalance: (userId: string, winningCredits: number) => void;
 }
@@ -111,39 +114,12 @@ const mockWithdrawals: WithdrawalRequest[] = [];
 
 const mockTransactions: Transaction[] = [];
 
-const mockUsers: User[] = [
-  {
-    id: 'mock-user-123',
-    email: 'player@example.com',
-    phone: '+919876543210',
-    displayName: 'ProPlayer',
-    walletBalance: 0,
-    winningCredits: 0,
-    isBanned: false,
-    isAdmin: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'user-2',
-    email: 'gamer2@example.com',
-    phone: '+919876543211',
-    displayName: 'GamerKing',
-    walletBalance: 350,
-    winningCredits: 480,
-    isBanned: false,
-    isAdmin: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
-
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [tournaments, setTournaments] = useState<Tournament[]>(mockTournaments);
   const [userRegistrations, setUserRegistrations] = useState<TournamentRegistration[]>([]);
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [allUsers, setAllUsers] = useState<User[]>(mockUsers);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const fetchTournaments = useCallback(async () => {
@@ -156,7 +132,6 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const fetchUserRegistrations = useCallback(async (userId: string) => {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
-    // Return empty for new users - in real app, fetch from database
     setUserRegistrations(mockRegistrations.filter(r => r.userId === userId));
     setIsLoading(false);
   }, []);
@@ -171,16 +146,36 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const fetchTransactions = useCallback(async (userId: string) => {
     setIsLoading(true);
     await new Promise(resolve => setTimeout(resolve, 500));
-    // Return empty for new users - in real app, fetch from database
     setTransactions(mockTransactions.filter(t => t.userId === userId));
     setIsLoading(false);
   }, []);
 
   const fetchAllUsers = useCallback(async () => {
     setIsLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 500));
-    setAllUsers(mockUsers);
-    setIsLoading(false);
+    try {
+      const usersSnapshot = await getDocs(collection(db, 'users'));
+      const users: User[] = usersSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          email: data.email || '',
+          phone: data.phone || '',
+          displayName: data.displayName || '',
+          walletBalance: data.walletBalance || 0,
+          winningCredits: data.winningCredits || 0,
+          isBanned: data.isBanned || false,
+          isAdmin: data.isAdmin || false,
+          createdAt: data.createdAt?.toDate() || new Date(),
+          updatedAt: data.updatedAt?.toDate() || new Date(),
+        };
+      });
+      setAllUsers(users);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setAllUsers([]);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   const joinTournament = useCallback(async (tournamentId: string, userId: string) => {
@@ -376,9 +371,25 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const banUser = useCallback(async (userId: string) => {
-    setAllUsers(prev => prev.map(u => 
-      u.id === userId ? { ...u, isBanned: true } : u
-    ));
+    try {
+      await updateDoc(doc(db, 'users', userId), { isBanned: true });
+      setAllUsers(prev => prev.map(u => 
+        u.id === userId ? { ...u, isBanned: true } : u
+      ));
+    } catch (error) {
+      console.error('Error banning user:', error);
+      throw error;
+    }
+  }, []);
+
+  const deleteUser = useCallback(async (userId: string) => {
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      setAllUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      throw error;
+    }
   }, []);
 
   const getTournamentRegistrations = useCallback(async (tournamentId: string) => {
@@ -409,6 +420,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         processWithdrawal,
         disqualifyPlayer,
         banUser,
+        deleteUser,
         getTournamentRegistrations,
         updateUserBalance,
       }}
