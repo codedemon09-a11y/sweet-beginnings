@@ -16,6 +16,7 @@ import {
   Phone,
   Wallet,
   Trophy,
+  Trash2,
 } from 'lucide-react';
 import {
   AlertDialog,
@@ -30,7 +31,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 const AdminUsers: React.FC = () => {
-  const { allUsers, fetchAllUsers, banUser } = useData();
+  const { allUsers, fetchAllUsers, banUser, deleteUser } = useData();
   const [searchQuery, setSearchQuery] = React.useState('');
 
   useEffect(() => {
@@ -49,6 +50,15 @@ const AdminUsers: React.FC = () => {
       toast.success(`${userName} has been banned`);
     } catch (error) {
       toast.error('Failed to ban user');
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    try {
+      await deleteUser(userId);
+      toast.success(`${userName} has been deleted`);
+    } catch (error) {
+      toast.error('Failed to delete user');
     }
   };
 
@@ -184,31 +194,59 @@ const AdminUsers: React.FC = () => {
                   </div>
 
                   {!user.isAdmin && !user.isBanned && (
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" size="sm">
-                          <Ban className="w-4 h-4" />
-                          Ban
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Ban User</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to ban {user.displayName}? They will not be able to join tournaments or withdraw funds.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                            onClick={() => handleBanUser(user.id, user.displayName)}
-                          >
-                            Ban User
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <div className="flex gap-2">
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="destructive" size="sm">
+                            <Ban className="w-4 h-4" />
+                            Ban
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Ban User</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to ban {user.displayName}? They will not be able to join tournaments or withdraw funds.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => handleBanUser(user.id, user.displayName)}
+                            >
+                              Ban User
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="outline" size="sm" className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground">
+                            <Trash2 className="w-4 h-4" />
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete User</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to permanently delete {user.displayName}? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={() => handleDeleteUser(user.id, user.displayName)}
+                            >
+                              Delete User
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
                   )}
                 </div>
               </div>
